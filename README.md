@@ -2,6 +2,8 @@
 
 Turn customer enquiries into quotes using your own prices, then track them through to paid jobs.
 
+[Open OrderPilot](https://orderpilot-za.vercel.app/) · [Verification and remaining work](docs/TAKEOVER.md)
+
 Built for small service businesses in South Africa: caterers, cleaners, tradespeople, painters and event organisers. OrderPilot is a separate product from Resolve ZA.
 
 ## Current product
@@ -43,9 +45,8 @@ The built-in reader uses deterministic pattern matching and works without an API
 
 ## Next delivery slice
 
-1. GitHub repository and automatic Vercel deployments.
-2. Account-based persistent storage with tenant isolation and a real customer form inbox.
-3. Authenticated AI extraction with usage limits and explicit data disclosure.
-4. Quote versions, deposits, acceptance records and follow-up history.
+1. Account-based persistent storage with tenant isolation and a real customer form inbox.
+2. Authenticated AI extraction with usage limits and explicit data disclosure.
+3. Quote versions, deposits, acceptance records and follow-up history.
 
 See `docs/TAKEOVER.md` for verification and known limitations.

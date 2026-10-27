@@ -40,7 +40,7 @@ The uploaded `grok-workspace.zip` contained a React 19 / TanStack Start applicat
 - Live public deployment `https://orderpilot-za.vercel.app/`: quote creation, a R125.50 custom line, exact total R1975.50, sent → won → paid and persistence after reload directly verified through the cloud browser.
 - Browser-extension metadata errors appeared in the cloud browser console, from a `chrome-extension://` URL; they were separate from the app.
 
-Vercel project: `prj_akOStojHpaOQhw8S0IdaCQ9Tnq6c`, in Butter's projects. Verified direct-file release: `dpl_6myswaNkhWGGp2pQ3yiFgDUForND` (READY). The Git-connected successor should be reconciled after repository import. No claim is made that real WhatsApp messages were sent or real payments processed.
+Vercel project: `prj_akOStojHpaOQhw8S0IdaCQ9Tnq6c`, in Butter's projects. Verified direct-file release: `dpl_6myswaNkhWGGp2pQ3yiFgDUForND` (READY). The full source was imported into `buttercode101/OrderPilot` at `d587c47cf771a253b50dc721f96d843912ed3b3f`. The local source tree exactly matched GitHub tree `007409d445fe83e962d5d493077b342b45fadb3a`. Vercel Git Settings directly confirmed connection to this repository; the documentation reconciliation commit also exercises automatic deployment from main. No claim is made that real WhatsApp messages were sent or real payments processed.
 
 ## Remaining product work
 
