@@ -1,0 +1,99 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Figtree", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Fraunces", ui-serif, Georgia, "Times New Roman", serif;
+
+  --color-paper: #f4efe6;
+  --color-paper-2: #e7dfd0;
+  --color-card: #fffdf8;
+  --color-ink: #1c1915;
+  --color-ink-soft: #3a342c;
+  --color-muted: #5e574e;
+  --color-line: #ddd4c4;
+  --color-moss: #1e4d3a;
+  --color-moss-2: #2a684c;
+  --color-moss-soft: #e3f0e8;
+  --color-clay: #8e3d20;
+  --color-clay-soft: #f8ebe3;
+
+  --shadow-card:
+    0px 0px 0px 1px rgba(28, 25, 21, 0.06),
+    0px 1px 2px -1px rgba(28, 25, 21, 0.06),
+    0px 10px 24px -16px rgba(28, 25, 21, 0.28);
+  --shadow-lift:
+    0px 0px 0px 1px rgba(28, 25, 21, 0.08),
+    0px 8px 20px -12px rgba(28, 25, 21, 0.22);
+
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    background: var(--color-paper);
+    color: var(--color-ink);
+  }
+
+  body {
+    font-family: var(--font-sans);
+    line-height: 1.5;
+    background: var(--color-paper);
+    color: var(--color-ink);
+    min-height: 100vh;
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--color-moss-soft);
+    color: var(--color-ink);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@layer base {
+  input, textarea, select { min-width: 0; }
+  article p, article h2 { overflow-wrap: anywhere; }
+}
+.print-quote { display: none; }
+@media print {
+  @page { margin: 18mm; }
+  body * { display: none !important; }
+  body *:has(.print-quote), .print-quote, .print-quote * { display: block !important; }
+  body *:has(.print-quote) { border: 0 !important; box-shadow: none !important; background: white !important; max-width: none !important; margin: 0 !important; padding: 0 !important; }
+  .print-quote { display: block; position: absolute; inset: 0; color: #111; background: white; font: 12pt/1.6 sans-serif; }
+  .print-quote h1 { font: bold 24pt/1.3 sans-serif; margin-bottom: 8mm; }
+  .quote-print-message { white-space: pre-wrap; margin-top: 8mm; }
+  header, aside, [data-no-print], button, textarea, input, select { display: none !important; }
+  [data-quote-detail] { display: block !important; }
+}

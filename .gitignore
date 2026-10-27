@@ -1,0 +1,17 @@
+node_modules/
+.vercel/
+.output/
+dist/
+.env
+.env.*
+!.env.example
+screenshots/
+artifacts/
+*.log
+.grok/preview.pid
+.grok/preview.log
+.grok/references/
+.grok/skills/
+.node_modules.lock
+attachments/
+.grok/status
