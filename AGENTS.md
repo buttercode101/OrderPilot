@@ -2,7 +2,7 @@
 
 Mission: help small service businesses turn enquiries into accurate quotes and track them through paid jobs. OrderPilot stays separate from Resolve ZA.
 
-Preserve the existing React / TanStack Start implementation and cream / moss design system. Use mobile-first layouts and touch targets of at least 44px.
+Preserve the React / TanStack Start implementation. The user explicitly requested a complete redesign: use the new Inter / slate / blue design system and workspace shell. Use mobile-first layouts and touch targets of at least 44px.
 
 ## Commercial correctness
 

@@ -2,7 +2,7 @@
 
 Turn customer enquiries into quotes using your own prices, then track them through to paid jobs.
 
-[Open OrderPilot](https://orderpilot-za.vercel.app/) · [Verification and remaining work](docs/TAKEOVER.md)
+[Open OrderPilot](https://orderpilot-za.vercel.app/) · [Design research and new interface](docs/REDESIGN.md) · [Verification and remaining work](docs/TAKEOVER.md)
 
 Built for small service businesses in South Africa: caterers, cleaners, tradespeople, painters and event organisers. OrderPilot is a separate product from Resolve ZA.
 

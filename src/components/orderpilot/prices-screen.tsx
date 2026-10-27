@@ -1,10 +1,10 @@
 import { useState } from "react";
+import { ArrowRight, Plus, Search, ShieldCheck, Tag, Trash2 } from "lucide-react";
 import { STARTER_LISTS } from "@/lib/orderpilot/presets";
 import { currencySymbol, formatMoney } from "@/lib/orderpilot/money";
 import { useOrderPilot } from "@/lib/orderpilot/store";
 import type { PriceItem, Unit } from "@/lib/orderpilot/types";
 import { Button, Field, TextInput } from "./ui";
-
 const UNITS: { id: Unit; label: string }[] = [
   { id: "person", label: "per person" },
   { id: "each", label: "each" },
@@ -13,189 +13,322 @@ const UNITS: { id: Unit; label: string }[] = [
   { id: "day", label: "per day" },
   { id: "room", label: "per room" },
 ];
-
 export function PricesScreen() {
-  const prices = useOrderPilot((state) => state.prices);
-  const business = useOrderPilot((state) => state.business);
-  const upsertPrice = useOrderPilot((state) => state.upsertPrice);
-  const removePrice = useOrderPilot((state) => state.removePrice);
-  const setPrices = useOrderPilot((state) => state.setPrices);
-  const setBusiness = useOrderPilot((state) => state.setBusiness);
-  const [armed, setArmed] = useState<string | null>(null);
-  const categories = [...new Set(prices.map((price) => price.category))];
-
+  const prices = useOrderPilot((s) => s.prices),
+    business = useOrderPilot((s) => s.business),
+    upsert = useOrderPilot((s) => s.upsertPrice),
+    remove = useOrderPilot((s) => s.removePrice),
+    setPrices = useOrderPilot((s) => s.setPrices),
+    setBusiness = useOrderPilot((s) => s.setBusiness);
+  const [query, setQuery] = useState(""),
+    [category, setCategory] = useState("all"),
+    [adding, setAdding] = useState(false),
+    [armed, setArmed] = useState<string | null>(null),
+    [removeId, setRemoveId] = useState<string | null>(null);
+  const categories = [...new Set(prices.map((p) => p.category))];
+  const shown = prices.filter(
+    (p) =>
+      (category === "all" || p.category === category) &&
+      `${p.name} ${p.category}`.toLowerCase().includes(query.toLowerCase()),
+  );
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 py-6 pb-24">
-      <div>
-        <h2 className="font-display text-4xl">Your prices</h2>
-        <p className="mt-2 text-ink-soft">
-          These are the only numbers a quote can use. If a job is not listed, OrderPilot leaves the price blank.
+    <div className="op-prices">
+      <div className="op-page-heading">
+        <div>
+          <p className="op-eyebrow">THE NUMBERS ARE YOURS</p>
+          <h1>Your price book</h1>
+          <p>One source of truth for what you charge.</p>
+        </div>
+        <Button onClick={() => setAdding((v) => !v)}>
+          <Plus size={16} />
+          {adding ? "Close editor" : "Add a price"}
+        </Button>
+      </div>
+      <div className="op-price-summary">
+        <div>
+          <span className="op-section-icon">
+            <Tag size={20} />
+          </span>
+          <span>
+            <strong>{prices.length} services & items</strong>
+            <small>
+              Across {categories.length} categories · {business.currency}
+            </small>
+          </span>
+        </div>
+        <p>
+          <ShieldCheck size={16} />
+          Quotes use your rates, never invented prices.
         </p>
       </div>
-
-      {prices.length === 0 ? (
-        <p className="rounded-xl bg-card p-4 text-ink-soft shadow-card">No prices yet. Add one, or start from an example list.</p>
-      ) : (
-        categories.map((category) => (
-          <section key={category}>
-            <h3 className="font-display text-2xl">{category}</h3>
-            <ul className="mt-2 divide-y divide-line">
-              {prices
-                .filter((price) => price.category === category)
-                .map((price) => (
-                  <li key={price.id} className="flex flex-wrap items-center gap-3 py-3">
-                    <label className="min-w-0 flex-1">
-                      <span className="sr-only">Name</span>
-                      <TextInput
-                        value={price.name}
-                        aria-label={`${price.name} name`}
-                        onChange={(event) => upsertPrice({ ...price, name: event.target.value })}
-                      />
-                    </label>
-                    <label className="flex items-center gap-1">
-                      <span className="text-sm text-muted">{currencySymbol(business.currency)}</span>
-                      <TextInput
-                        type="number"
-                        step="0.01"
-                        min={0}
-                        inputMode="decimal"
-                        className="w-28 text-right tabular-nums"
-                        value={price.price}
-                        aria-label={`${price.name} price`}
-                        onChange={(event) => {
-                          const next = Number(event.target.value);
-                          if (Number.isFinite(next) && next >= 0) upsertPrice({ ...price, price: next });
-                        }}
-                      />
-                    </label>
-                    <span className="text-sm text-muted">{UNITS.find((unit) => unit.id === price.unit)?.label}</span>
-                    <button
-                      type="button"
-                      className="min-h-11 px-2 text-sm font-semibold text-clay"
-                      onClick={() => removePrice(price.id)}
-                    >
-                      Remove
-                    </button>
-                  </li>
-                ))}
-            </ul>
-          </section>
-        ))
-      )}
-
-      <AddPrice existingCategories={categories} onAdd={upsertPrice} />
-
-      <section className="rounded-xl bg-card p-4 shadow-card">
-        <h3 className="font-display text-2xl">Example lists</h3>
-        <p className="mt-1 text-sm text-muted">
-          Replace what you have with a starter list. Quotes already written keep their old amounts until you pull latest prices.
-        </p>
-        <ul className="mt-4 grid gap-3 sm:grid-cols-2">
-          {STARTER_LISTS.map((list) => (
-            <li key={list.id} className="rounded-lg bg-paper p-3">
-              <p className="font-semibold">{list.label}</p>
-              <p className="text-sm text-muted">{list.blurb}</p>
-              <p className="mt-1 text-sm tabular-nums text-ink-soft">
-                {formatMoney(list.prices[0]?.price ?? 0, business.currency)} and up
+      {adding ? (
+        <AddPrice
+          categories={categories}
+          onAdd={(p) => {
+            upsert(p);
+            setAdding(false);
+            setCategory("all");
+            setQuery("");
+          }}
+          onCancel={() => setAdding(false)}
+        />
+      ) : null}
+      <section className="op-work-panel">
+        <div className="op-list-toolbar">
+          <label className="op-search">
+            <Search size={17} />
+            <input
+              aria-label="Search prices"
+              placeholder="Find a service or item…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </label>
+          <span className="op-count">Changes save automatically</span>
+        </div>
+        <div className="op-category-tabs">
+          <button
+            type="button"
+            aria-pressed={category === "all"}
+            onClick={() => setCategory("all")}
+          >
+            All services <span>{prices.length}</span>
+          </button>
+          {categories.map((c) => (
+            <button
+              type="button"
+              key={c}
+              aria-pressed={category === c}
+              onClick={() => setCategory(c)}
+            >
+              {c}
+            </button>
+          ))}
+        </div>
+        <div className="op-price-table">
+          <div className="op-price-table-head" aria-hidden>
+            <span>Service / item</span>
+            <span>Rate ({currencySymbol(business.currency)})</span>
+            <span>Charged</span>
+            <span />
+          </div>
+          {shown.length ? (
+            shown.map((price) => (
+              <div className="op-price-row" key={price.id}>
+                <div>
+                  <TextInput
+                    aria-label={`${price.name} name`}
+                    value={price.name}
+                    onChange={(e) => upsert({ ...price, name: e.target.value })}
+                  />
+                  <span>{price.category}</span>
+                </div>
+                <TextInput
+                  aria-label={`${price.name} price`}
+                  type="number"
+                  step="0.01"
+                  min={0}
+                  value={price.price}
+                  onChange={(e) => {
+                    const v = Number(e.target.value);
+                    if (Number.isFinite(v) && v >= 0) upsert({ ...price, price: v });
+                  }}
+                />
+                <label>
+                  <span className="sr-only">{price.name} unit</span>
+                  <select
+                    className="op-input"
+                    value={price.unit}
+                    onChange={(e) => upsert({ ...price, unit: e.target.value as Unit })}
+                  >
+                    {UNITS.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  className={`op-price-remove ${removeId === price.id ? "is-armed" : ""}`}
+                  aria-label={
+                    removeId === price.id ? `Confirm remove ${price.name}` : `Remove ${price.name}`
+                  }
+                  onClick={() => (removeId === price.id ? remove(price.id) : setRemoveId(price.id))}
+                >
+                  {removeId === price.id ? "Confirm" : <Trash2 size={15} />}
+                </button>
+              </div>
+            ))
+          ) : (
+            <div className="op-empty">
+              <Tag size={27} />
+              <h3>{prices.length ? "No matching services" : "Build your price book"}</h3>
+              <p>
+                {prices.length
+                  ? "Try a different search or category."
+                  : "Add your first service or start with an example list below."}
               </p>
+              <Button onClick={() => setAdding(true)}>Add a price</Button>
+            </div>
+          )}
+        </div>
+      </section>
+      <details className="op-template-section">
+        <summary>
+          <span>
+            <strong>Need a starting point?</strong>
+            <span>Explore example price lists for common service businesses.</span>
+          </span>
+          <Plus size={18} />
+        </summary>
+        <p className="op-template-warning">
+          Example rates are placeholders. Set your own prices before quoting a real customer.
+          Applying a list replaces your current price book; existing quotes keep their saved rates.
+        </p>
+        <div className="op-template-grid">
+          {STARTER_LISTS.map((list) => (
+            <div key={list.id}>
+              <span className="op-template-icon">
+                <Tag size={18} />
+              </span>
+              <h3>{list.label}</h3>
+              <p>{list.blurb}</p>
+              <span>Example from {formatMoney(list.prices[0]?.price ?? 0, business.currency)}</span>
               <Button
-                className="mt-3"
                 variant={armed === list.id ? "clay" : "secondary"}
                 onClick={() => {
                   if (armed !== list.id) {
                     setArmed(list.id);
                     return;
                   }
-                  setPrices(list.prices.map((price) => ({ ...price, hints: [...price.hints], softHints: [...price.softHints] })));
+                  setPrices(
+                    list.prices.map((p) => ({
+                      ...p,
+                      hints: [...p.hints],
+                      softHints: [...p.softHints],
+                    })),
+                  );
                   setBusiness({ trade: list.trade });
                   setArmed(null);
+                  setCategory("all");
                 }}
               >
                 {armed === list.id ? "Yes, replace my prices" : `Use ${list.label}`}
+                <ArrowRight size={14} />
               </Button>
-            </li>
+            </div>
           ))}
-        </ul>
-      </section>
+        </div>
+      </details>
     </div>
   );
 }
-
 function AddPrice({
-  existingCategories,
+  categories,
   onAdd,
+  onCancel,
 }: {
-  existingCategories: string[];
-  onAdd: (item: PriceItem) => void;
+  categories: string[];
+  onAdd: (p: PriceItem) => void;
+  onCancel: () => void;
 }) {
-  const [name, setName] = useState("");
-  const [category, setCategory] = useState(existingCategories[0] ?? "Work");
-  const [unit, setUnit] = useState<Unit>("job");
-  const [price, setPrice] = useState("");
-
+  const [name, setName] = useState(""),
+    [category, setCategory] = useState(categories[0] ?? "Services"),
+    [unit, setUnit] = useState<Unit>("job"),
+    [price, setPrice] = useState("");
   return (
-    <form
-      className="grid gap-3 rounded-xl border border-line p-4 sm:grid-cols-2"
-      onSubmit={(event) => {
-        event.preventDefault();
-        const amount = Number(price);
-        if (!name.trim() || !category.trim() || !price.trim() || !Number.isFinite(amount) || amount < 0) return;
-        const hints = name
-          .toLowerCase()
-          .split(/[^a-z0-9]+/)
-          .filter((word) => word.length > 3);
-        onAdd({
-          id: crypto.randomUUID(),
-          name: name.trim(),
-          category: category.trim(),
-          unit,
-          price: amount,
-          hints,
-          softHints: [],
-        });
-        setName("");
-        setPrice("");
-      }}
-    >
-      <h3 className="font-display text-2xl sm:col-span-2">Add a price</h3>
-      <Field label="Name">
-        <TextInput value={name} onChange={(event) => setName(event.target.value)} placeholder="Call-out" required />
-      </Field>
-      <Field label="Group">
-        <TextInput value={category} onChange={(event) => setCategory(event.target.value)} list="price-groups" required />
-        <datalist id="price-groups">
-          {existingCategories.map((item) => (
-            <option key={item} value={item} />
-          ))}
-        </datalist>
-      </Field>
-      <Field label="Charged">
-        <select
-          value={unit}
-          onChange={(event) => setUnit(event.target.value as Unit)}
-          className="h-11 w-full rounded-lg border border-line bg-card px-3 text-base text-ink"
-        >
-          {UNITS.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.label}
-            </option>
-          ))}
-        </select>
-      </Field>
-      <Field label="Amount">
-        <TextInput
-          type="number"
-                        step="0.01"
-          min={0}
-          inputMode="decimal"
-          value={price}
-          onChange={(event) => setPrice(event.target.value)}
-          required
-        />
-      </Field>
-      <Button type="submit" className="sm:col-span-2">
-        Add this price
-      </Button>
-    </form>
+    <section className="op-work-panel op-add-price-panel">
+      <div className="op-panel-heading">
+        <div>
+          <h2>Add a service or item</h2>
+          <p>Set the price and how you charge for it.</p>
+        </div>
+        <Tag size={19} />
+      </div>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          const amount = Number(price);
+          if (
+            !name.trim() ||
+            !category.trim() ||
+            !price.trim() ||
+            !Number.isFinite(amount) ||
+            amount < 0
+          )
+            return;
+          onAdd({
+            id: crypto.randomUUID(),
+            name: name.trim(),
+            category: category.trim(),
+            unit,
+            price: amount,
+            hints: name
+              .toLowerCase()
+              .split(/[^a-z0-9]+/)
+              .filter((w) => w.length > 3),
+            softHints: [],
+          });
+        }}
+      >
+        <div className="op-panel-body op-form-grid">
+          <Field label="Name">
+            <TextInput
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Consultation"
+            />
+          </Field>
+          <Field label="Group">
+            <TextInput
+              required
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              list="price-groups"
+            />
+            <datalist id="price-groups">
+              {categories.map((c) => (
+                <option key={c} value={c} />
+              ))}
+            </datalist>
+          </Field>
+          <Field label="Amount">
+            <TextInput
+              required
+              type="number"
+              min={0}
+              step="0.01"
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              placeholder="0.00"
+            />
+          </Field>
+          <Field label="Charged">
+            <select
+              className="op-input"
+              value={unit}
+              onChange={(e) => setUnit(e.target.value as Unit)}
+            >
+              {UNITS.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
+        <div className="op-panel-actions">
+          <Button variant="secondary" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button type="submit">
+            Add this price
+            <ArrowRight size={15} />
+          </Button>
+        </div>
+      </form>
+    </section>
   );
 }
