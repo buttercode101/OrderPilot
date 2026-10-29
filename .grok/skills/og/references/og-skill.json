@@ -1,0 +1,25 @@
+{
+  "name": "og",
+  "description": "Open Graph metadata for social sharing",
+  "version": "1.0.0",
+  "references": [
+    {
+      "name": "og:title",
+      "description": "The title of the page",
+      "type": "string",
+      "example": "InvoiceFlow - Send invoices and track payments"
+    },
+    {
+      "name": "og:description",
+      "description": "The description of the page",
+      "type": "string",
+      "example": "InvoiceFlow is a local-first invoicing workspace for South African freelancers and small businesses. Keep customers, quotes, invoices, payments and expenses together, then export the documents and records you need."
+    },
+    {
+      "name": "og:image",
+      "description": "The image to display with the link",
+      "type": "string",
+      "example": "https://invoiceflow-za.vercel.app/og-image.png"
+    }
+  ]
+}
