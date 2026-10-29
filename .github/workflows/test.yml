@@ -15,8 +15,6 @@ jobs:
           node-version: "24"
       - name: Install dependencies
         run: npm ci
-      - name: Run test scripts
+      - name: Run test scripts with coverage
         run: |
-          for f in scripts/*.test.mjs; do
-            node "$f"
-          done
+          npx c8 node scripts/*.test.mjs
