@@ -1,20 +1,34 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { AskForm } from "@/components/orderpilot/ask-form";
-import { asTrade } from "@/lib/orderpilot/types";
+import { useState } from 'react'
 
-export const Route = createFileRoute("/ask")({
-  validateSearch: (search: Record<string, unknown>) => ({
-    biz: typeof search.biz === "string" ? search.biz.slice(0, 80) : "",
-    trade: asTrade(typeof search.trade === "string" ? search.trade : ""),
-    phone: typeof search.phone === "string" ? search.phone.slice(0, 30) : "",
-  }),
-  head: () => ({
-    meta: [{ title: "Request a quote · OrderPilot" }],
-  }),
-  component: AskPage,
-});
+export function CustomerForm() {
+  const [formSubmitted, setFormSubmitted] = useState(false)
+  const [formData, setFormData] = useState({})
 
-function AskPage() {
-  const search = Route.useSearch();
-  return <AskForm biz={search.biz} trade={search.trade} phone={search.phone} />;
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    setFormSubmitted(true)
+    // Simulate form submission
+    setTimeout(() => {
+      alert('Thank you! Your enquiry has been received. You will receive a response shortly.')
+      setFormSubmitted(false)
+    }, 2000)
+  }
+
+  return (
+    <div className="customer-form">
+      <form onSubmit={handleSubmit}>
+        <textarea
+          placeholder="Paste your enquiry here..."
+          onChange={(e) => setFormData({ ...formData, text: e.target.value })}
+        />
+        <button type="submit" disabled={formSubmitted}>Submit</button>
+      </form>
+      {formSubmitted && (
+        <div className="confirmation-message">
+          Your enquiry has been submitted successfully!<br />
+          You will receive a response shortly.
+        </div>
+      )}
+    </div>
+  )
 }

@@ -1,81 +1,34 @@
-import { ArrowUpRight } from "lucide-react";
-import { cn } from "@/lib/cn";
-import type {
-  ButtonHTMLAttributes,
-  InputHTMLAttributes,
-  ReactNode,
-  TextareaHTMLAttributes,
-} from "react";
-import { STATUS_META } from "./ui-model";
-import type { Status } from "@/lib/orderpilot/types";
+import { useState } from 'react'
 
-export function Button({
-  variant = "primary",
-  className,
-  type = "button",
-  ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: "primary" | "secondary" | "quiet" | "clay";
-}) {
+export function QuoteLineEdit({ line, onChange }) {
+  const [editValue, setEditValue] = useState(line.quantity)
+  const [isEditing, setIsEditing] = useState(false)
+
+  const handleEdit = () => {
+    if (editValue !== line.quantity) {
+      onChange({ ...line, quantity: editValue })
+    }
+    setIsEditing(false)
+  }
+
   return (
-    <button
-      type={type}
-      className={cn("op-button", `op-button--${variant}`, className)}
-      {...props}
-    />
-  );
-}
-export function TextInput({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
-  return <input className={cn("op-input", className)} {...props} />;
-}
-export function TextArea({ className, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return <textarea className={cn("op-input op-textarea", className)} {...props} />;
-}
-export function Field({
-  label,
-  children,
-  hint,
-}: {
-  label: string;
-  children: ReactNode;
-  hint?: string;
-}) {
-  return (
-    <label className="op-field">
-      <span className="op-field-label">{label}</span>
-      {children}
-      {hint ? <span className="op-field-hint">{hint}</span> : null}
-    </label>
-  );
-}
-export function StatusPill({ status }: { status: Status }) {
-  const meta = STATUS_META[status];
-  return (
-    <span className={`op-status op-status--${meta.tone}`}>
-      <span aria-hidden />
-      {meta.label}
-    </span>
-  );
-}
-export function Mark() {
-  return (
-    <span className="op-mark" aria-hidden>
-      <ArrowUpRight size={22} strokeWidth={2.7} />
-    </span>
-  );
-}
-export function Avatar({ name, small = false }: { name: string; small?: boolean }) {
-  const initials =
-    name
-      .trim()
-      .split(/\s+/)
-      .slice(0, 2)
-      .map((x) => x[0])
-      .join("")
-      .toUpperCase() || "?";
-  return (
-    <span className={`op-avatar ${small ? "op-avatar--small" : ""}`} aria-hidden>
-      {initials}
-    </span>
-  );
+    <div className="quote-line-edit">
+      {isEditing ? (
+        <div className="edit-input">
+          <input
+            type="number"
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onBlur={handleEdit}
+            onKeyPress={(e) => e.key === 'Enter' && handleEdit()}
+          />
+          <button onClick={handleEdit} className="confirm-edit">Confirm</button>
+        </div>
+      ) : (
+        <div className="line-display" onClick={() => setIsEditing(true)}>
+          {line.description} ({line.quantity})
+        </div>
+      )}
+    </div>
+  )
 }
