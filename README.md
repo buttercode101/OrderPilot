@@ -1,3 +1,5 @@
+![CI](https://github.com/buttercode101/OrderPilot/actions/workflows/test.yml/badge.svg)
+
 # OrderPilot
 
 Turn customer enquiries into quotes using your own prices, then track them through to paid jobs.
