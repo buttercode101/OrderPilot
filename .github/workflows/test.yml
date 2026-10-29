@@ -12,8 +12,10 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: "24"
-      - name: Install dependencies
+      - name: Install lint dependencies
+        run: npm install -D eslint prettier
+      - name: Run lint
+        run: npx eslint . --max-warnings=0
       - name: Audit dependencies
         run: npm audit --audit-level=high
         run: npm ci
