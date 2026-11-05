@@ -17,4 +17,4 @@ jobs:
         run: npm ci
       - name: Run test scripts with coverage
         run: |
-          npx c8 node scripts/*.test.mjs
+          npm test
