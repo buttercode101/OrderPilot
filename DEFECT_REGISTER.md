@@ -25,3 +25,7 @@ Date: 2026-11-06 · Starting commit `e5fbc38` · Tested with partial fix set bel
 - Browser-localStorage persistence only — no server sync/tenant isolation confirmed; architecture decision (Grok import) left dead weight/confusion risk.
 - Optional xAI path (OPENAI/GROK keys) untested; not a code defect but a configuration/credentials gap.
 - CI runs test only; no build/typecheck/e2e in current workflow — per owner priority.
+## O-005 — better-auth critical: rate-limit bypass via concurrent PostgreSQL requests (P2, DOCUMENTED)
+- Evidence: npm audit --omit=dev reports GHSA-44jh-23m7-hpcf critical in @better-auth/drizzle-adapter (1.6.17-1.7.6) via better-auth 1.3.8-beta.3-1.7.6. Fix: better-auth@1.7.18 (outside ~1.6.30 range in package.json).
+- Impact: auth is off in the shipped deployment (VITE_AUTH_ENABLED=false default via .grok/app-env.json), so the deployed surface is limited; but the vulnerable version remains in the lockfile. Upgrade to 1.7.18 requires API compatibility review - not forcing without owner confirmation and auth-enabled test pass.
+- Mitigation in place: Dependency audit step in test.yml now runs npm audit --omit=dev --audit-level=high with continue-on-error: true (visible, non-blocking) until the upgrade lands.
