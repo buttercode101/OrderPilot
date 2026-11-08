@@ -71,6 +71,8 @@ export type Enquiry = {
   followUpOn?: string;
   paidAt?: string | null;
   currency?: Currency;
+  /** Recorded "Send anyway" override: unconfirmed lines / blocking gaps at send time. */
+  sendOverride?: { at: string; lines: string[]; blockedBy: string[] } | null;
 };
 
 export type Gap = {

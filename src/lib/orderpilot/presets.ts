@@ -55,6 +55,11 @@ export const EVENT_PRICES: PriceItem[] = [
   item("event-cake", "Party cake (serves 20)", "Extras", "each", 480, ["a cake", "birthday cake"]),
 ];
 
+export const OTHER_PRICES: PriceItem[] = [
+  item("other-job", "Per job", "Work", "job", 500, ["job", "work", "service"], ["please", "help"]),
+  item("other-hour", "Hourly work", "Labour", "hour", 250, ["hour", "hourly", "per hour"]),
+];
+
 export const DEMO_BUSINESS: Business = {
   name: "Harbour & Hearth",
   ownerName: "Amina Jacobs",
@@ -123,7 +128,57 @@ export const STARTER_LISTS: StarterList[] = [
     blurb: "Party packages, decor and entertainment.",
     prices: EVENT_PRICES,
   },
+  {
+    id: "other",
+    trade: "other",
+    label: "Other services",
+    blurb: "Generic per-job and hourly placeholders — edit to your rates.",
+    prices: OTHER_PRICES,
+  },
 ];
+
+export const TRADE_DESCRIPTIONS: Record<Trade, string> = {
+  catering: "Food for gatherings, parties and events",
+  cleaning: "Cleaning homes, offices and rentals",
+  handyman: "Repairs, call-outs and odd jobs",
+  painting: "Interiors, exteriors and prep work",
+  events: "Parties, decor and entertainment",
+  other: "Anything else you do for customers",
+};
+
+export function starterListForTrade(trade: Trade): StarterList {
+  return STARTER_LISTS.find((list) => list.trade === trade) ?? STARTER_LISTS[STARTER_LISTS.length - 1];
+}
+
+const TRADE_SAMPLE_MESSAGES: Record<Trade, string[]> = {
+  catering: [SAMPLE_MESSAGES.birthday, SAMPLE_MESSAGES.shower],
+  cleaning: [SAMPLE_MESSAGES.clean],
+  handyman: [SAMPLE_MESSAGES.geyser],
+  painting: [SAMPLE_MESSAGES.paint],
+  events: [SAMPLE_MESSAGES.kids],
+  other: ["Hi, can you help with a job next week in Sandton? Please let me know your rates."],
+};
+
+export type StarterMode = "sample" | "empty" | "demo";
+/** Trade-first starter (DESIGN_SYSTEM §9.2): every trade yields a non-empty price book. */
+export function buildStarterForTrade(
+  trade: Trade,
+  mode: StarterMode,
+): { business: Business; prices: PriceItem[]; enquiries: Enquiry[] } {
+  if (mode === "demo") return buildDemo();
+  const list = starterListForTrade(trade);
+  const business: Business = { ...DEMO_BUSINESS, trade, name: "", ownerName: "", phone: "" };
+  const prices = list.prices.map((price) => ({ ...price, hints: [...price.hints], softHints: [...price.softHints] }));
+  if (mode === "empty") return { business, prices, enquiries: [] };
+  const enquiries = (TRADE_SAMPLE_MESSAGES[trade] ?? []).map((message, index) => {
+    const enquiry = enquiryFromMessage(message, business, prices, "sample");
+    const stamp = daysAgo(index);
+    enquiry.createdAt = stamp;
+    enquiry.updatedAt = stamp;
+    return enquiry;
+  });
+  return { business, prices, enquiries };
+}
 
 function daysAgo(days: number): string {
   return new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();

@@ -1,8 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { quoteTotal, lineTotal, whatsappLink } from './money';
-import { enquiryFromMessage, patchEnquiry, applyReading, quoteText, mergeReply } from './engine';
-import { buildDemo } from './presets';
+import { enquiryFromMessage, patchEnquiry, applyReading, quoteText, mergeReply, confirmQuoteLine, confirmProgress, isReadyToSend, recordSendOverride, previewConfidence, looksLikeVoiceNote, COMPOSER_MAX_CHARS, COMPOSER_MIN_CHARS } from './engine';
+import { buildDemo, buildStarterForTrade, STARTER_LISTS } from './presets';
+import { TRADES } from './types';
 import { parseBackup } from './backup';
 
 test('quote totals equal the sum of rounded line totals', () => {
@@ -45,4 +46,55 @@ test('backup roundtrip and invalid input validation', () => {
   assert.deepEqual(parseBackup(JSON.stringify(raw)),d);
   assert.throws(()=>parseBackup('{"data":{}}'));
   raw.data.prices[0].price=-5; assert.throws(()=>parseBackup(JSON.stringify(raw)));
+});
+
+test('per-line confirm flips one flag only; ready is derived (bulk-confirm gone)', () => {
+  const d = buildDemo();
+  const base = enquiryFromMessage('Buffet for 80 people next Saturday, please include delivery and a celebration cake', d.business, d.prices, "paste");
+  const e = { ...base, lines: base.lines.map((l, i) => (i < 2 ? { ...l, assumed: true } : l)) };
+  assert.ok(e.lines.length >= 2, 'expected at least 2 suggested lines');
+  const assumed = e.lines.filter(l => l.assumed);
+  assert.ok(assumed.length >= 1);
+  const next = confirmQuoteLine(e.lines, assumed[0].id);
+  assert.equal(next.filter(l => l.assumed).length, assumed.length - 1);
+  assert.deepEqual(confirmProgress(next), { confirmed: next.length - (assumed.length - 1), total: next.length, unconfirmed: assumed.length - 1 });
+  // forcedReady no longer forces ready
+  const forced = patchEnquiry(e, { forcedReady: true, status: 'ready' } as never, d.prices, d.business.trade);
+  assert.equal(forced.forcedReady, false);
+  if (!isReadyToSend(e, d.business.trade)) assert.equal(forced.status, 'needs-info');
+});
+
+test('send-anyway override records unconfirmed lines and blocking gaps', () => {
+  const d = buildDemo();
+  const e = enquiryFromMessage('Buffet for 80 people', d.business, d.prices, "paste");
+  const next = recordSendOverride(e, d.business.trade);
+  assert.equal(next.status, 'sent');
+  assert.ok(next.sendOverride);
+  assert.ok(Array.isArray(next.sendOverride.lines) && Array.isArray(next.sendOverride.blockedBy));
+});
+
+test('every trade incl other yields non-empty starter book; sample/empty modes work', () => {
+  for (const trade of TRADES) {
+    const empty = buildStarterForTrade(trade, 'empty');
+    assert.ok(empty.prices.length > 0, trade);
+    assert.equal(empty.business.trade, trade);
+    assert.deepEqual(empty.enquiries, []);
+    const sample = buildStarterForTrade(trade, 'sample');
+    assert.ok(sample.enquiries.length >= 1, trade);
+    assert.ok(sample.enquiries.every(en => en.lines !== undefined));
+  }
+  assert.equal(STARTER_LISTS.length, 6);
+  assert.equal(buildStarterForTrade('cleaning', 'demo').business.trade, 'catering');
+});
+
+test('composer limits and preview confidence: 8-char rule, 6000 cap, amber guessed, voice-note', () => {
+  assert.equal(COMPOSER_MIN_CHARS, 8);
+  assert.equal(COMPOSER_MAX_CHARS, 6000);
+  assert.equal(previewConfidence('We are near Claremont', 'location', 'Claremont'), 'high');
+  assert.equal(previewConfidence('We are in a quiet suburb', 'location', 'A Quiet Suburb'), 'guessed');
+  assert.equal(previewConfidence('about 80 people', 'quantity', '80 people'), 'guessed');
+  assert.equal(previewConfidence('80 people', 'quantity', '80 people'), 'high');
+  assert.equal(previewConfidence('hi', 'location', ''), 'missing');
+  assert.equal(looksLikeVoiceNote('hi can you clean my house next week in rondebosch please'), true);
+  assert.equal(looksLikeVoiceNote('Hi, can you clean?'), false);
 });

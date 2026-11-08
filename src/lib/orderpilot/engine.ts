@@ -538,6 +538,68 @@ export function allGaps(enquiry: Enquiry, trade: Trade): Gap[] {
   ];
 }
 
+export const COMPOSER_MIN_CHARS = 8;
+export const COMPOSER_MAX_CHARS = 6000;
+
+/** Per-line confirm: clears `assumed` on exactly one line — never a bulk clear. */
+export function confirmQuoteLine(lines: QuoteLine[], id: string): QuoteLine[] {
+  return lines.map((line) => (line.id === id ? { ...line, assumed: false } : line));
+}
+
+export type ConfirmProgress = { confirmed: number; total: number; unconfirmed: number };
+export function confirmProgress(lines: QuoteLine[]): ConfirmProgress {
+  const unconfirmed = lines.filter((line) => line.assumed).length;
+  return { confirmed: lines.length - unconfirmed, total: lines.length, unconfirmed };
+}
+
+/** "Ready" is derived, never forced: no assumed lines and no blocking gaps. */
+export function isReadyToSend(enquiry: Enquiry, trade: Trade): boolean {
+  return (
+    enquiry.lines.length > 0 &&
+    !enquiry.lines.some((line) => line.assumed) &&
+    !gaps(enquiry, trade).some((gap) => gap.blocking)
+  );
+}
+
+export function recordSendOverride(enquiry: Enquiry, trade: Trade): Enquiry {
+  const lines = enquiry.lines.filter((line) => line.assumed).map((line) => line.label);
+  const blockedBy = gaps(enquiry, trade)
+    .filter((gap) => gap.blocking)
+    .map((gap) => gap.ask);
+  return {
+    ...enquiry,
+    sendOverride: { at: new Date().toISOString(), lines, blockedBy },
+    status: "sent",
+    sentAt: enquiry.sentAt ?? new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+export type PreviewConfidence = "high" | "guessed" | "missing";
+/** Deterministic confidence layer for the composer preview (UX-19). */
+export function previewConfidence(
+  text: string,
+  field: "customerName" | "service" | "quantity" | "when" | "location",
+  value: string | number | null,
+): PreviewConfidence {
+  if (value === "" || value === null || value === undefined) return "missing";
+  const lower = text.toLowerCase();
+  if (field === "location")
+    return PLACES.some((place) => lower.includes(place)) ? "high" : "guessed";
+  if (field === "quantity")
+    return /\b(?:about|around|roughly|approximately|approx\.?)\s+\d/.test(lower)
+      ? "guessed"
+      : "high";
+  if (field === "service") return "high";
+  return "high";
+}
+
+/** Lowercase, punctuation-free messages (voice-note style) under-extract by design. */
+export function looksLikeVoiceNote(text: string): boolean {
+  const trimmed = text.trim();
+  return trimmed.length >= 20 && trimmed === trimmed.toLowerCase() && !/[.!?;:]/.test(trimmed);
+}
+
 export function freshStatus(enquiry: Enquiry, trade: Trade): Status {
   if (enquiry.lines.length === 0) return "needs-info";
   if (enquiry.lines.some((line) => line.assumed)) return "needs-info";
@@ -576,6 +638,7 @@ export function enquiryFromMessage(
     customFollowUp: null,
     extraQuestions: [],
     sentAt: null,
+    sendOverride: null,
   };
   draft.lines = suggestLines(draft.rawMessage, draft, prices);
   if (!draft.service && draft.lines.length) draft.service = draft.lines.map(line => line.label).join(", ");
@@ -618,7 +681,10 @@ export function patchEnquiry(
   }
 
   const terminal = next.status === "sent" || next.status === "won" || next.status === "paid" || next.status === "lost";
-  if (!terminal && !next.forcedReady && !("status" in patch)) {
+  // `forcedReady` is no longer a silent path to "ready": Ready is derived (DESIGN_SYSTEM §9.1).
+  next.forcedReady = false;
+  if (next.status === "ready" && !isReadyToSend(next, trade)) next.status = "needs-info";
+  if (!terminal && !("status" in patch)) {
     next.status = freshStatus(next, trade);
   }
   return next;

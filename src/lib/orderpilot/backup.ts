@@ -19,6 +19,7 @@ const schema = z.object({
       lines: z.array(z.object({ id, priceItemId: id.nullable(), label: text, category: text, qty: z.number().finite().positive().max(1000000), unit, unitPrice: amount, assumed: z.boolean() })).max(1000),
       linesCustom: z.boolean(), forcedReady: z.boolean(), customMessage: text.nullable(), customFollowUp: text.nullable(), extraQuestions: z.array(text).max(100), sentAt: z.string().datetime().nullable(),
       followUpOn: z.string().refine(v => v === "" || /^\d{4}-\d{2}-\d{2}$/.test(v)).optional(), paidAt: z.string().datetime().nullable().optional(), currency: z.enum(CURRENCIES).optional(),
+      sendOverride: z.object({ at: z.string().datetime(), lines: z.array(text), blockedBy: z.array(text) }).nullable().optional(),
     })).max(10000),
   }),
 });

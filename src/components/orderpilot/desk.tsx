@@ -26,12 +26,13 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import { allGaps, enquiryFromMessage, sortEnquiries } from "@/lib/orderpilot/engine";
+import { allGaps, COMPOSER_MAX_CHARS, COMPOSER_MIN_CHARS, enquiryFromMessage, looksLikeVoiceNote, previewConfidence, sortEnquiries } from "@/lib/orderpilot/engine";
 import { formatMoney, quoteTotal } from "@/lib/orderpilot/money";
 import { PASTE_EXAMPLES } from "@/lib/orderpilot/presets";
 import { useOrderPilot, useOrderPilotHydrated } from "@/lib/orderpilot/store";
 import type { Enquiry, Status } from "@/lib/orderpilot/types";
 import { EnquiryDetail } from "./detail";
+import { FirstRun } from "./first-run";
 import { BusinessScreen } from "./business-screen";
 import { PricesScreen } from "./prices-screen";
 import { Avatar, Button, Mark, StatusPill, TextArea } from "./ui";
@@ -79,6 +80,7 @@ function Desk() {
   const clearPending = useOrderPilot((s) => s.clearPending);
   const introDismissed = useOrderPilot((s) => s.introDismissed);
   const dismissIntro = useOrderPilot((s) => s.dismissIntro);
+  const firstRunCompleted = useOrderPilot((s) => s.firstRunCompleted);
   const [screen, setScreen] = useState<Screen>("overview");
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
@@ -118,6 +120,15 @@ function Desk() {
     if (screen === "detail" && !selected) setScreen("inbox");
   }, [screen, selected]);
   const currentNav = screen === "detail" || screen === "compose" ? "inbox" : screen;
+  if (!firstRunCompleted) {
+    return (
+      <div className="op-app">
+        <main className="op-content">
+          <FirstRun onDone={(mode) => { if (mode !== "demo") navigate("compose"); }} />
+        </main>
+      </div>
+    );
+  }
   return (
     <div className="op-app">
       <a href="#main-content" className="op-skip-link">
@@ -653,8 +664,10 @@ function Composer({ onCancel }: { onCancel: () => void }) {
   const prices = useOrderPilot((s) => s.prices);
   const add = useOrderPilot((s) => s.addEnquiry);
   const [text, setText] = useState("");
+  const truncated = text.length >= COMPOSER_MAX_CHARS;
+  const tooShort = text.trim().length > 0 && text.trim().length < COMPOSER_MIN_CHARS;
   const preview = useMemo(
-    () => (text.trim().length >= 8 ? enquiryFromMessage(text, business, prices, "paste") : null),
+    () => (text.trim().length >= COMPOSER_MIN_CHARS ? enquiryFromMessage(text, business, prices, "paste") : null),
     [text, business, prices],
   );
   return (
@@ -674,20 +687,28 @@ function Composer({ onCancel }: { onCancel: () => void }) {
         <section className="op-work-panel op-form-panel">
           <div className="op-panel-heading">
             <h2>Customer message</h2>
-            <span className="op-count">{text.length} / 6,000</span>
+            <span className="op-count">{text.length.toLocaleString("en-ZA")} / {COMPOSER_MAX_CHARS.toLocaleString("en-ZA")}</span>
           </div>
           <div className="op-panel-body">
             <TextArea
               aria-label="Customer message"
-              maxLength={6000}
+              aria-describedby="composer-hint composer-truncation"
+              maxLength={COMPOSER_MAX_CHARS}
               value={text}
               onChange={(e) => setText(e.target.value)}
               rows={10}
-              placeholder="Hi, I need catering for about 80 people next Saturday. Do you do that?"
+              placeholder="Paste a WhatsApp message — as short as a name and a job."
             />
-            <p className="op-field-hint">
-              Keep their original wording. You can edit all the details next.
+            <p className="op-field-hint" id="composer-hint">
+              {tooShort
+                ? "Add a few more words so I can read it."
+                : "Keep their original wording. You can edit all the details next."}
             </p>
+            {truncated ? (
+              <p className="op-truncation-notice" id="composer-truncation" role="status">
+                This message was cut at {COMPOSER_MAX_CHARS.toLocaleString("en-ZA")} characters. The quote only has the first part — paste the most important part first.
+              </p>
+            ) : null}
             <div className="op-example-label">OR TRY AN EXAMPLE</div>
             <div className="op-example-buttons">
               {PASTE_EXAMPLES.map((e) => (
@@ -709,6 +730,11 @@ function Composer({ onCancel }: { onCancel: () => void }) {
               Save and open the quote
               <ArrowRight size={16} />
             </Button>
+            {!preview ? (
+              <p className="op-field-hint" role="status">
+                {tooShort ? "Add a few more words so I can read it." : "Paste a WhatsApp message first — as short as a name and a job."}
+              </p>
+            ) : null}
           </div>
         </section>
         <section className="op-extraction">
@@ -722,22 +748,48 @@ function Composer({ onCancel }: { onCancel: () => void }) {
           </p>
           {preview ? (
             <>
+              {looksLikeVoiceNote(text) ? (
+                <p className="op-voice-note">Voice-note style messages are harder to read. The missing bits are listed below.</p>
+              ) : null}
               <dl>
-                {[
-                  ["Customer", preview.customerName],
-                  ["Service", preview.service],
-                  ["Size", preview.quantity ? `${preview.quantity} ${preview.quantityLabel}` : ""],
-                  ["When", preview.when],
-                  ["Where", preview.location],
-                ].map(([label, value]) => (
-                  <div key={label}>
-                    <dt>{label}</dt>
-                    <dd>{value || "To confirm"}</dd>
-                  </div>
-                ))}
+                {(
+                  [
+                    ["Customer", "customerName", preview.customerName],
+                    ["Service", "service", preview.service],
+                    ["Size", "quantity", preview.quantity ? `${preview.quantity} ${preview.quantityLabel}` : ""],
+                    ["When", "when", preview.when],
+                    ["Where", "location", preview.location],
+                  ] as const
+                )
+                  .filter(([, , value]) => value)
+                  .map(([label, field, value]) => {
+                    const confidence = previewConfidence(text, field, value);
+                    return (
+                      <div key={label}>
+                        <dt>{label}</dt>
+                        <dd className={confidence === "guessed" ? "op-guessed" : undefined}>
+                          {value}
+                          <small>
+                            {confidence === "guessed"
+                              ? "I guessed this from your words — check it"
+                              : "read from your message"}
+                          </small>
+                        </dd>
+                      </div>
+                    );
+                  })}
               </dl>
+              {["customerName", "service", "quantity", "when", "location"].every((f) =>
+                previewConfidence(
+                  text,
+                  f as "customerName" | "service" | "quantity" | "when" | "location",
+                  (preview as unknown as Record<string, unknown>)[f] as string | number | null,
+                ) !== "missing",
+              ) ? null : (
+                <p className="op-missing-heading">Missing — we&apos;ll ask</p>
+              )}
               <div className="op-extraction-total">
-                <span>Draft quote</span>
+                <span>Draft quote total — from your price book, may change when you check the lines</span>
                 <strong>
                   {preview.lines.length
                     ? formatMoney(quoteTotal(preview.lines), business.currency)

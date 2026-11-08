@@ -21,11 +21,15 @@ import {
   allGaps,
   applyReading,
   assumptionNote,
+  confirmProgress,
+  confirmQuoteLine,
   followUpText,
   freshStatus,
+  isReadyToSend,
   patchEnquiry,
   pullLatestPrices,
   quoteText,
+  recordSendOverride,
   mergeReply,
 } from "@/lib/orderpilot/engine";
 import { copyText, formatMoney, lineTotal, quoteTotal, whatsappLink } from "@/lib/orderpilot/money";
@@ -47,6 +51,7 @@ export function EnquiryDetail({ enquiry, onBack }: { enquiry: Enquiry; onBack: (
   const [aiBusy, setAiBusy] = useState(false);
   const [aiNote, setAiNote] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [sendAnywayArmed, setSendAnywayArmed] = useState(false);
 
   function edit(patch: Partial<Enquiry>) {
     const latest =
@@ -57,6 +62,8 @@ export function EnquiryDetail({ enquiry, onBack }: { enquiry: Enquiry; onBack: (
   function saveStatus(status: Enquiry["status"]) {
     const latest =
       useOrderPilot.getState().enquiries.find((item) => item.id === enquiry.id) ?? enquiry;
+    // Ready is derived: never force it over unconfirmed lines / blocking gaps.
+    if (status === "ready" && !isReadyToSend(latest, business.trade)) return;
     replaceEnquiry({
       ...latest,
       status,
@@ -125,6 +132,9 @@ export function EnquiryDetail({ enquiry, onBack }: { enquiry: Enquiry; onBack: (
   const quote = quoteText(business, enquiry);
   const total = quoteTotal(enquiry.lines);
   const assumed = assumptionNote(enquiry.lines);
+  const progress = confirmProgress(enquiry.lines);
+  const readyDerived = isReadyToSend(enquiry, business.trade);
+  const blockingGaps = gaps.filter((g) => g.blocking);
   const whenLabel = safeAgo(enquiry.createdAt);
   const terminal = ["won", "paid", "lost"].includes(enquiry.status);
   const mismatch = !!enquiry.currency && enquiry.currency !== business.currency;
@@ -247,6 +257,20 @@ export function EnquiryDetail({ enquiry, onBack }: { enquiry: Enquiry; onBack: (
                   <p>{assumed}</p>
                 </div>
               ) : null}
+              <p className="op-trust-disclosure">
+                These prices came from your price book. The ones marked <strong>Guess</strong> weren&apos;t in your book yet — check them before you send.
+              </p>
+              {enquiry.lines.length ? (
+                <div className="op-confirm-progress">
+                  <span>{progress.confirmed} of {progress.total} lines confirmed</span>
+                  <span className="op-progress" role="progressbar" aria-valuenow={progress.confirmed} aria-valuemin={0} aria-valuemax={progress.total} aria-label="Lines confirmed">
+                    <span style={{ width: `${progress.total ? (progress.confirmed / progress.total) * 100 : 0}%` }} />
+                  </span>
+                  {progress.unconfirmed ? (
+                    <small>Confirm {progress.unconfirmed} guessed line{progress.unconfirmed === 1 ? "" : "s"} to mark ready.</small>
+                  ) : null}
+                </div>
+              ) : null}
               <div className="op-line-table">
                 <div className="op-line-table-head" aria-hidden>
                   <span>Description</span>
@@ -261,6 +285,7 @@ export function EnquiryDetail({ enquiry, onBack }: { enquiry: Enquiry; onBack: (
                       line={line}
                       currency={currency}
                       onChange={(qty) => changeQty(line, qty)}
+                      onConfirm={() => confirmLine(line.id)}
                       onRemove={() => removeLine(line.id)}
                     />
                   ))
@@ -363,10 +388,17 @@ export function EnquiryDetail({ enquiry, onBack }: { enquiry: Enquiry; onBack: (
                     rows={9}
                   />
                 ) : (
-                  <details className="op-message-disclosure">
-                    <summary>Preview customer message</summary>
-                    <p className="op-message-preview">{quote}</p>
-                  </details>
+                  <>
+                    {progress.unconfirmed ? (
+                      <p className="op-preview-banner" role="status">
+                        This preview includes {progress.unconfirmed} unconfirmed line{progress.unconfirmed === 1 ? "" : "s"}.
+                      </p>
+                    ) : null}
+                    <details className="op-message-disclosure">
+                      <summary>Preview customer message</summary>
+                      <p className="op-message-preview">{quote}</p>
+                    </details>
+                  </>
                 )}
                 {enquiry.customMessage ? (
                   <button
@@ -633,19 +665,57 @@ export function EnquiryDetail({ enquiry, onBack }: { enquiry: Enquiry; onBack: (
             </p>
             <div className="op-status-actions">
               {enquiry.status === "needs-info" && enquiry.lines.length ? (
-                <Button
-                  onClick={() =>
-                    edit({
-                      lines: enquiry.lines.map((l) => ({ ...l, assumed: false })),
-                      linesCustom: true,
-                      forcedReady: true,
-                      status: "ready",
-                    })
-                  }
-                >
-                  The quote is ready
-                  <ArrowRight size={16} />
-                </Button>
+                <>
+                  <Button disabled={!readyDerived} onClick={() => saveStatus("ready")}>
+                    Mark ready to send
+                    <ArrowRight size={16} />
+                  </Button>
+                  {!readyDerived ? (
+                    <p className="op-field-hint" role="status">
+                      {progress.unconfirmed
+                        ? `Confirm ${progress.unconfirmed} guessed line${progress.unconfirmed === 1 ? "" : "s"} to mark ready.`
+                        : blockingGaps.length
+                          ? `${blockingGaps.length} blocking question${blockingGaps.length === 1 ? "" : "s"} still need${blockingGaps.length === 1 ? "s" : ""} an answer.`
+                          : "Finish the quote to mark ready."}
+                    </p>
+                  ) : null}
+                  {!readyDerived && !sendAnywayArmed ? (
+                    <Button variant="quiet" onClick={() => setSendAnywayArmed(true)}>
+                      Send anyway (not recommended)
+                    </Button>
+                  ) : null}
+                  {sendAnywayArmed && !readyDerived ? (
+                    <div className="op-send-anyway" role="alert">
+                      <p>
+                        This will record that you sent the quote before checking:{" "}
+                        {[
+                          ...enquiry.lines.filter((l) => l.assumed).map((l) => l.label),
+                          ...blockingGaps.map((g) => g.ask),
+                        ].join("; ") || "unconfirmed items"}
+                        .
+                      </p>
+                      <Button
+                        onClick={() => {
+                          const latest =
+                            useOrderPilot.getState().enquiries.find((item) => item.id === enquiry.id) ?? enquiry;
+                          replaceEnquiry(recordSendOverride(latest, business.trade));
+                          setSendAnywayArmed(false);
+                        }}
+                      >
+                        Yes, send anyway
+                      </Button>
+                      <Button variant="quiet" onClick={() => setSendAnywayArmed(false)}>
+                        Keep checking
+                      </Button>
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
+              {enquiry.sendOverride ? (
+                <p className="op-override-record" role="status">
+                  Sent anyway on {new Date(enquiry.sendOverride.at).toLocaleDateString("en-ZA")} — unconfirmed:{" "}
+                  {[...enquiry.sendOverride.lines, ...enquiry.sendOverride.blockedBy].join("; ") || "none"}
+                </p>
               ) : null}
               {!["sent", "won", "paid", "lost"].includes(enquiry.status) ? (
                 <Button
@@ -750,6 +820,9 @@ export function EnquiryDetail({ enquiry, onBack }: { enquiry: Enquiry; onBack: (
   function removeLine(id: string) {
     edit({ lines: enquiry.lines.filter((item) => item.id !== id), linesCustom: true });
   }
+  function confirmLine(id: string) {
+    edit({ lines: confirmQuoteLine(enquiry.lines, id), linesCustom: true });
+  }
 }
 function CircleAlertIcon() {
   return (
@@ -762,21 +835,30 @@ function LineRow({
   line,
   currency,
   onChange,
+  onConfirm,
   onRemove,
 }: {
   line: QuoteLine;
   currency: Currency;
   onChange: (q: number) => void;
+  onConfirm: () => void;
   onRemove: () => void;
 }) {
+  const provenance = line.priceItemId === null ? "You typed this" : line.assumed ? "Guess — confirm before sending" : "From your price book";
   return (
-    <div className="op-line-row">
+    <div className={`op-line-row ${line.assumed ? "op-line-row--assumed" : ""}`}>
       <div>
         <strong>{line.label}</strong>
         <span>
           {formatMoney(line.unitPrice, currency)} / {line.unit}
-          {line.assumed ? " · Review suggestion" : ""}
         </span>
+        <small className={line.assumed ? "op-guessed" : undefined}>{provenance}</small>
+        {line.assumed ? (
+          <label className="op-confirm-line">
+            <input type="checkbox" checked={false} onChange={onConfirm} />
+            Confirm this guess
+          </label>
+        ) : null}
       </div>
       <label>
         <span className="sr-only">Qty</span>

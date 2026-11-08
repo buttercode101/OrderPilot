@@ -9,6 +9,7 @@ type OrderState = {
   prices: PriceItem[];
   enquiries: Enquiry[];
   introDismissed: boolean;
+  firstRunCompleted: boolean;
   pendingFocusId: string | null;
   setBusiness: (patch: Partial<Business>) => void;
   setPrices: (prices: PriceItem[]) => void;
@@ -19,6 +20,7 @@ type OrderState = {
   removeEnquiry: (id: string) => void;
   replaceAll: (next: { business: Business; prices: PriceItem[]; enquiries: Enquiry[] }) => void;
   dismissIntro: () => void;
+  completeFirstRun: () => void;
   clearPending: () => void;
 };
 
@@ -31,6 +33,7 @@ export const useOrderPilot = create<OrderState>()(
       prices: demo.prices,
       enquiries: demo.enquiries,
       introDismissed: false,
+      firstRunCompleted: false,
       pendingFocusId: null,
       setBusiness: (patch) => set((state) => ({
         business: { ...state.business, ...patch },
@@ -58,6 +61,7 @@ export const useOrderPilot = create<OrderState>()(
         set((state) => ({ enquiries: state.enquiries.filter((enquiry) => enquiry.id !== id) })),
       replaceAll: (next) => set({ ...next, pendingFocusId: null }),
       dismissIntro: () => set({ introDismissed: true }),
+      completeFirstRun: () => set({ firstRunCompleted: true }),
       clearPending: () => set({ pendingFocusId: null }),
     }),
     {
@@ -67,6 +71,13 @@ export const useOrderPilot = create<OrderState>()(
         prices: state.prices,
         enquiries: state.enquiries,
         introDismissed: state.introDismissed,
+        firstRunCompleted: state.firstRunCompleted,
+      }),
+      // Existing workspaces (persisted before first-run existed) are done already.
+      merge: (persisted, current) => ({
+        ...current,
+        ...(persisted as Partial<OrderState>),
+        firstRunCompleted: (persisted as Partial<OrderState> | undefined)?.firstRunCompleted ?? true,
       }),
     },
   ),
